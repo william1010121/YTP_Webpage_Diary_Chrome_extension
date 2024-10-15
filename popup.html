@@ -8,18 +8,39 @@
 <body>
   <div class="container">
     <h2>URL Saver</h2>
+    <h3>LLM API</h3>
+    <div class="llmApiKey-section">
+      <label for="apikey">API Key:</label>
+      <input type="text" id="api-key" placeholder="Enter your API key" value="AIzaSyBqjdfVKLWdoG8eCuODdRz1__X4Bq3hPx8">
+    </div>
+    <div class="llmApiUrl-section">
+      <label for="apiurl">API URL:</label>
+      <input type="text" id="api-url" placeholder="Enter you api BASE URL" value="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent">
+    </div>
+    <h3>LLM User</h3>
     <div class="user-section">
       <label for="user">User:</label>
       <input type="text" id="user" placeholder="Enter your username">
     </div>
+    <h3>URL</h3>
     <div class="api-section">
       <label for="api">API URL:</label>
       <input type="text" id="api" placeholder="Enter you api BASE URL">
     </div>
+    <h3>Options</h3>
     <button id="save-url">Save URL</button>
+    <button id="summary-and-save-url">Summary and Save URL</button>
     <button id="mark-treasure">Mark as Treasure Website</button>
     <button id="toggle-auto">Enable Auto Upload</button>
+    <button id="summary">Summary Current Page</button>
     <div class="status" id="status"></div>
+    <h3>Input</h3>
+    <textarea id="input-text" placeholder="Enter some text"></textarea>
+    <button id="SubmitInput">Submit</button>
+    <h3>Output</h3>
+    <textarea id="output-text" readonly></textarea>
+    <h3>The list of the treasure websites</h3>
+    <textarea id="treasure-list"></textarea>
   </div>
   <script src="popup.js"></script>
 </body>
