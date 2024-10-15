@@ -79,14 +79,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         console.warn('API not set. Cannot upload URL.');
         return;
       }
-
-      saveURL(tab.url, "", (response) => {
-        if (response.status === 'success') {
-          console.log('Auto-uploaded URL:', tab.url);
-        } else {
-          console.error('Failed to auto-upload URL:', response.message);
-        }
-      });
+      summaryAndSaveCurrentPage(tab.url);
+    }
   }
 });
 
@@ -109,11 +103,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     else if( type == 'save_url') {
       const { url } = request;
-      await saveURL(url,"", sendResponse);
+      await saveURL(url,"","this is the title", sendResponse);
     }
     else if( type == 'save_url_content') {
       const { url, content } = request;
-      await saveURL(url, content, sendResponse);
+      await saveURL(url, content, "this is the title", sendResponse);
     }
     else {
       console.error('Missing required fields.');
@@ -125,18 +119,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 async function processTextGeminiAI(api, key, text, sendResponse) {
+  callGeminiApi(api,key,"Please generate a response to the following text:",text,sendResponse);
+}
+
+async function processsummaryGeminiAI(api, key, text, sendResponse) {
+  callGeminiApi(api,key,"Please summarize the following text into a title:",text,sendResponse);
+}
+
+async function callGeminiApi(api,key,sysInstruction,contents,sendResponse){
   const URL = `${api}?key=${key}`;
   const data = {
     systemInstruction: {
       parts: [
         {
-          text: "Please generate a response to the following text:"
+          text: sysInstruction
         }
       ]
     },
     contents: [{
       parts: [{
-        text: text
+        text: contents
       }]
     }]
   };
@@ -181,7 +183,7 @@ async function pageText() {
   return document.body.innerText;
 }
 
-async function saveURL(url, content, sendResponse) {
+async function saveURL(url, content, title, sendResponse) {
   const api = await getApi();
   const user = await getUser();
   if (!user) {
@@ -216,3 +218,14 @@ async function saveURL(url, content, sendResponse) {
   }
 }
 
+async function summaryAndSaveCurrentPage(url) {
+  summaryCurrentPage((content) => {
+    saveURL(url, content, (response) => {
+      if (response.status === 'success') {
+        console.log('URL saved successfully.');
+      } else {
+        console.error('Failed to save URL:', response.message);
+      }
+    });
+  });
+}
