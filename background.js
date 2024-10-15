@@ -68,8 +68,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       return; // Auto-upload is disabled
     }
     const isTreasure = await isTreasureSubpage(tab.url);
-    console.error('Is Treasure:', isTreasure);
-    console.error('URL:', tab.url);
     if (isTreasure) {
       const user = await getUser();
       const api = await getApi(); 
@@ -82,26 +80,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         return;
       }
 
-      const payload = { user, url: tab.url };
-
-      try {
-        const response = await fetch(`${api}/api/uploads/url`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
+      saveURL(tab.url, "", (response) => {
+        if (response.status === 'success') {
           console.log('Auto-uploaded URL:', tab.url);
         } else {
-          console.error('Failed to auto-upload URL:', response.statusText);
+          console.error('Failed to auto-upload URL:', response.message);
         }
-      } catch (error) {
-        console.error('Error auto-uploading URL:', error);
-      }
-    }
+      });
   }
 });
 
