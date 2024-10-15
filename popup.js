@@ -4,9 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveUrlButton = document.getElementById('save-url');
   const markTreasureButton = document.getElementById('mark-treasure');
   const toggleAutoButton = document.getElementById('toggle-auto');
+  const apiInput = document.getElementById('api');
   const userInput = document.getElementById('user');
   const statusDiv = document.getElementById('status');
-
+  
   // Load saved user from storage if exists
   chrome.storage.local.get(['user'], (result) => {
     if (result.user) {
@@ -24,10 +25,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Load API URL from storage if exists
+  chrome.storage.local.get(['api'], (result) => {
+    if (result.api) {
+      apiInput.value = result.api;
+    }
+  });
+
+  // Save API URL to storage on change
+  apiInput.addEventListener('change', () => {
+    const api = apiInput.value.trim();
+    if (api) {
+      chrome.storage.local.set({ api }, () => {
+        console.log('API saved:', api);
+      });
+    }
+  });
+
   // Handle Save URL Button Click
   saveUrlButton.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const user = userInput.value.trim();
+    const api = apiInput.value.trim();
     if (!user) {
       showStatus('Please enter a user.', true);
       return;
@@ -37,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = { user, url };
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/uploads', {
+      const response = await fetch(`${api}/api/uploads/url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

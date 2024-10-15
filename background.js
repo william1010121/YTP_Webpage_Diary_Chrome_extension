@@ -22,6 +22,15 @@ async function getUser() {
   });
 }
 
+// Function to get the stored api
+async function getApi() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['api'], (result) => {
+      resolve(result.api || null);
+    });
+  });
+}
+
 // Function to check if auto-upload is enabled
 async function isAutoUploadEnabled() {
   return new Promise((resolve) => {
@@ -41,15 +50,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     const isTreasure = await isTreasureSubpage(tab.url);
     if (isTreasure) {
       const user = await getUser();
+      const api = await getApi(); 
       if (!user) {
         console.warn('User not set. Cannot upload URL.');
+        return;
+      }
+      if (!api) {
+        console.warn('API not set. Cannot upload URL.');
         return;
       }
 
       const payload = { user, url: tab.url };
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/uploads', {
+        const response = await fetch(`${api}/api/uploads/url`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
