@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const treasureList = document.getElementById('treasure-list');
 
   const inputText = document.getElementById('input-text'); 
+  const titleText = document.getElementById('title-text');
   const outputText = document.getElementById('output-text');
   const submitButton = document.getElementById('SubmitInput');
 
@@ -128,12 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
   submitButton.addEventListener('click', async () => {
     submitButton.disabled = true;
     outputText.textContent = 'Loading...';
+    titleText.textContent = 'Loading...';
     const text = inputText.value.trim();
     callGeminiAPI(text, (response) => {
-      if (response) {
-        outputText.textContent = response;
+      if (response.status == "success") {
+        outputText.textContent = response.response;
+        titleText.textContent = response.title;
       } else {
         outputText.textContent = 'Error: Failed to get response.';
+        titleText.textContent = 'Error: Failed to get title.';
       }
       submitButton.disabled = false;
     });
@@ -175,9 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const url = tab.url;
     await summaryCurrentPage(url);
     const content = outputText.textContent;
+    const title = titleText.textContent;
     console.log('Content:', content);
     console.log('URL:', url);
-    chrome.runtime.sendMessage({ url, content, type: 'save_url_content' }, (response) => {
+    chrome.runtime.sendMessage({ url, content, title, type: 'save_url_content_title' }, (response) => {
       if(!response) {
         showStatus('Error: Failed to save URL and Content.', true);
         return;
@@ -234,13 +239,16 @@ document.addEventListener('DOMContentLoaded', () => {
   async function summaryCurrentPage() {
     summaryButton.disabled = true;
     outputText.textContent = 'Loading...';
+    titleText.textContent = 'Loading...';
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: 'summary' }, (response) => {
-        if (response) {
-          outputText.textContent = response;
+        if (response && response.status === 'success') {
+          outputText.textContent = response.response;
+          titleText.textContent = response.title;
           resolve(response);
         } else {
           outputText.textContent = 'Error: Failed to get response.';
+          titleText.textContent = 'Error: Failed to get title.';
           reject('Failed to get response.');
         }
         summaryButton.disabled = false;

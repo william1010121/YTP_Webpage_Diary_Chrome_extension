@@ -1,5 +1,26 @@
 // background.js
+const SystemInstruction = {
+  "TITLE": 
+`Generate a plain title summarizing the key concept or main theme from the provided text.
 
+# Steps
+
+1. Carefully read and comprehend the given text to identify its main theme or topic.
+2. Extract the central idea or focus.
+3. Formulate a concise and descriptive title that encapsulates the main theme without additional context or details.
+
+# Output Format
+
+- A single, plain title capturing the essence of the text.
+
+# Notes
+
+- Ensure the title is succinct and directly related to the core theme.
+- Do not include any additional information or context from the text in your response.`,
+
+  "SUMMARY":
+  `please generate a summary of the following text:`
+};
 // Function to check if a URL is a subpage of any Treasure Website
 async function isTreasureSubpage(url) {
   const urlObj = new URL(url);
@@ -96,34 +117,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('API:', llmApiURL);
     console.log('URL:',URL);
     if (text && llmApiURL && llmApiKey && type === 'gemini') {
-      await processTextGeminiAI(llmApiURL, llmApiKey, text, sendResponse);
+      const response = await processTextGeminiAI(llmApiURL, llmApiKey, text);
+      const title= await processTitleGeminiAI(llmApiURL, llmApiKey, text);
+      sendResponse({
+        "status": "success",
+        "response": response,
+        "title": title,
+      });
+      sendResponse(response);
     }
     else if (type === 'summary' && llmApiURL && llmApiKey) {
       await summaryCurrentPage(sendResponse);
     }
     else if( type == 'save_url') {
       const { url } = request;
-      await saveURL(url,"","this is the title", sendResponse);
+      await saveURL(url,"","", sendResponse);
     }
-    else if( type == 'save_url_content') {
-      const { url, content } = request;
-      await saveURL(url, content, "this is the title", sendResponse);
+    else if( type == 'save_url_content_title') {
+      const { url, content, title } = request;
+      await saveURL(url, content, title, sendResponse);
     }
     else {
       console.error('Missing required fields.');
-      sendResponse("Need to have text, api, and key");
+      sendResponse({
+        "status": "error",
+        "message": "Missing required fields."
+      });
     }
   })();
   return true;
 });
 
 
-async function processTextGeminiAI(api, key, text, sendResponse) {
-  callGeminiApi(api,key,"Please generate a response to the following text:",text,sendResponse);
+async function processTextGeminiAI(api, key, text) {
+    return new Promise((resolve) => {
+        callGeminiApi(api, key,SystemInstruction["SUMMARY"], text, (response) => {
+            resolve(response);
+        }
+        );
+    });
+  //callGeminiApi(api,key,"Please generate a response to the following text:",text,sendResponse);
 }
 
-async function processsummaryGeminiAI(api, key, text, sendResponse) {
-  callGeminiApi(api,key,"Please summarize the following text into a title:",text,sendResponse);
+async function processTitleGeminiAI(api, key, text) {
+  console.log("SystemInstruction[\"TITLE\"]",SystemInstruction["TITLE"]);
+  return new Promise((resolve) => {
+    callGeminiApi(api, key, SystemInstruction["TITLE"] , text, (response) => {
+      resolve(response);
+    });
+  });
 }
 
 async function callGeminiApi(api,key,sysInstruction,contents,sendResponse){
@@ -165,19 +207,33 @@ async function callGeminiApi(api,key,sysInstruction,contents,sendResponse){
 async function summaryCurrentPage(sendResponse) {
   const api = await getllmApiURL();
   const key = await getllmApiKey();
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => { 
     chrome.scripting.executeScript({
       target: {tabId: tabs[0].id},
       function: pageText
-    }, (results) => {
+    }, async (results) => {
       const text = results[0].result;
       console.log('Page Text:', text);
-      processTextGeminiAI(api, key, text, (response) => {
-        sendResponse(response);
-      });      
+      const content = await processTextGeminiAI(api, key, text);
+      const title = await processTitleGeminiAI(api, key, content);
+      sendResponse({
+        "status": "success",
+        "response": content,
+        "title": title
+      });
     });
   });
 }
+
+async function giveTitleToContent(content, sendResponse) {
+  const api = await getllmApiURL();
+  const key = await getllmApiKey();
+  const title = await processTitleGeminiAI(api, key, content);
+  return new Promise((resolve) => {
+    resolve(title);
+  });
+};
 
 async function pageText() {
   return document.body.innerText;
@@ -195,7 +251,8 @@ async function saveURL(url, content, title, sendResponse) {
     return;
   }
 
-  const payload = { user, url, content };
+  const payload = { user, url, content, title };
+  console.log('Payload:', payload);
   try {
      const response = await fetch(`${api}/api/uploads/url`, {
        method: 'POST',
@@ -219,13 +276,17 @@ async function saveURL(url, content, title, sendResponse) {
 }
 
 async function summaryAndSaveCurrentPage(url) {
-  summaryCurrentPage((content) => {
-    saveURL(url, content, (response) => {
-      if (response.status === 'success') {
-        console.log('URL saved successfully.');
-      } else {
-        console.error('Failed to save URL:', response.message);
-      }
+  const summary = new Promise((resolve) => {
+    summaryCurrentPage((content) => {
+      resolve(content);
     });
+  });
+  const { status, response, title } = await summary;
+  saveURL(url, response, title, (response) => {
+    if (response.status === 'success') {
+      console.log('URL saved successfully.');
+    } else {
+      console.error('Failed to save URL:', response.message);
+    }
   });
 }
