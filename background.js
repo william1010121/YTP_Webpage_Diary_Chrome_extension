@@ -1,5 +1,5 @@
 
-import { saveURL } from './lib/backendApi.js';
+import { saveURL, getProject, getProjectList, getProjectstructure, createNode} from './lib/backendApi.js';
 import * as PageProcess from './lib/pageProcess.js';
 import * as LLMApi from './lib/LLMApi.js';
 import * as CHECK from './lib/checkStatus.js';
@@ -54,12 +54,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       await PageProcess.summaryCurrentPage(sendResponse);
     }
     else if( type == 'save_url') {
-      const { url } = request;
-      await saveURL(url,"","", sendResponse);
+      const {url, projectId, nodeId, urlType } = request;
+      await saveURL(url,"","", projectId, nodeId, urlType, sendResponse);
     }
     else if( type == 'save_url_content_title') {
-      const { url, content, title } = request;
-      await saveURL(url, content, title, sendResponse);
+      const { url, content, title, projectId, nodeId, urlType } = request;
+      await saveURL(url, content, title, projectId, nodeId, urlType, sendResponse);
+    }
+    else if( type == 'insert_project') {
+      const { project } = request;
+      await getProject(project, sendResponse);
+    }
+    else if( type == 'get_projects') {
+      await getProjectList(sendResponse);
+    }
+    else if( type == 'get_project_structure') {
+      const { project } = request;
+      await getProjectstructure(project, sendResponse);
+    }
+    else if( type == 'create_node') {
+      const { projectId, nodeTitle} = request;
+      await createNode(projectId, nodeTitle, sendResponse);
     }
     else {
       console.error('Missing required fields.');

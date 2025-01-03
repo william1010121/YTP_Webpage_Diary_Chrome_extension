@@ -13,11 +13,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const llmApiURL = document.getElementById('api-url');
   const treasureList = document.getElementById('treasure-list');
 
-  const inputText = document.getElementById('input-text'); 
+  const inputText = document.getElementById('input-text');
   const titleText = document.getElementById('title-text');
   const outputText = document.getElementById('output-text');
   const submitButton = document.getElementById('SubmitInput');
 
+  const selectProject = document.getElementById('projectId');
+  const selectNodeId = document.getElementById('nodeId');
+  const selectUrlType = document.getElementById('urlType');
+
+  const createProjectButton = document.getElementById('create-project');
+  const createNodeButton = document.getElementById('create-node');
+
+  const dialogInfo = document.getElementById('dialog-info');
 
   // list the treasure websites
   function updateTreasureList(treasureWebsites) {
@@ -112,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
       llmApiURL.value = defaultAPIURL;
       chrome.storage.local.set({ llmApiURL: defaultAPIURL }, () => {
         console.log('API URL saved:', defaultAPIURL);
-      });  
+      });
     }
   });
 
@@ -152,8 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
       showStatus('Please enter a user.', true);
       return;
     }
+    const projectId = selectProject.value;
+    const nodeId = selectNodeId.value;
+    const urlType = selectUrlType.value;
+    if(!projectId || !nodeId || !urlType) {
+      showStatus('Please select a project and node also urlType.', true);
+      return;
+    }
     const url = tab.url;
-    chrome.runtime.sendMessage({ url, type: 'save_url' }, (response) => {
+    chrome.runtime.sendMessage({ url, projectId, nodeId, urlType, type: 'save_url' }, (response) => {
       if(!response) {
         showStatus('Error: Failed to save URL.', true);
         return;
@@ -176,13 +191,20 @@ document.addEventListener('DOMContentLoaded', () => {
       showStatus('Please enter a user.', true);
       return;
     }
+    const projectId = selectProject.value;
+    const nodeId = selectNodeId.value;
+    const urlType = selectUrlType.value;
+    if(!projectId || !nodeId || !urlType) {
+      showStatus('Please select a project and node also urlType.', true);
+      return;
+    }
     const url = tab.url;
     await summaryCurrentPage(url);
     const content = outputText.textContent;
     const title = titleText.textContent;
     console.log('Content:', content);
     console.log('URL:', url);
-    chrome.runtime.sendMessage({ url, content, title, type: 'save_url_content_title' }, (response) => {
+    chrome.runtime.sendMessage({ url, content, title, projectId, urlType, nodeId, type: 'save_url_content_title' }, (response) => {
       if(!response) {
         showStatus('Error: Failed to save URL and Content.', true);
         return;
@@ -266,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function showStatus(message, isError = false) {
     statusDiv.textContent = message;
     statusDiv.style.color = isError ? 'red' : 'green';
+    dialogInfo.textContent = message;
+    dialogInfo.style.color = isError ? 'red' : 'green';
+    showDialog();
     setTimeout(() => {
       statusDiv.textContent = '';
     }, 3000);
@@ -275,14 +300,142 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleAutoButton.textContent = isEnabled ? 'Disable Auto Upload' : 'Enable Auto Upload';
   }
 
-  // Function call Gemini AI API and get the response  
+  // Function call Gemini AI API and get the response
   // text: input text
   // response: need to be a function to handle the response
   function callGeminiAPI(text, response) {
     const api = llmApiURL.value.trim();
     const key = llmApiKey.value.trim();
     const type = 'gemini';
-    chrome.runtime.sendMessage({ text, type}, response);
+    chrome.runtime.sendMessage({ text, type }, response);
   }
+
+  selectProject.addEventListener('click',()=>{
+    chrome.runtime.sendMessage({type: 'get_projects'}, (response) => {
+      if(!response) {
+        showStatus('Error: Failed to get projects.', true);
+        return;
+      }
+      if( response.status === 'success') {
+        const length = response.projectList['project-length'];
+        const projects = response.projectList.projects;
+        selectProject.innerHTML = '';
+        for (let i = 0; i < length; i++) {
+          const option = document.createElement('option');
+          option.value = projects[i];
+          option.text = projects[i];
+          selectProject.appendChild(option);
+        }
+      }
+      else {
+        showStatus(`Error: ${response.message}`, true);
+      }
+    });
+  });
+  selectNodeId.addEventListener('click',()=>{
+    const project = selectProject.value;
+    if(!project) {
+      showStatus('Please select a project.', true);
+      return;
+    }
+    chrome.runtime.sendMessage({project, type: 'get_project_structure'}, (response) => {
+      if(!response) {
+        showStatus('Error: Failed to get nodes.', true);
+        return;
+      }
+      if( response.status === 'success') {
+        console.log(response);
+        console.log(response.projectStructure);
+        const structure = response.projectStructure.structure;
+        const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
+        selectNodeId.innerHTML = '';
+        for (let i = 0; i < keyList.length; i++) {
+          const option = document.createElement('option');
+          option.value = keyList[i];
+          option.text = `${structure["nodeTitle"][keyList[i]]}(${keyList[i]})`;
+          selectNodeId.appendChild(option);
+        }
+      }
+      else {
+        showStatus(`Error: ${response.message}`, true);
+      }
+    });
+  });
+
+  // use prompt to get the project name
+  createProjectButton.addEventListener('click', async ()=>{
+    const projectName = await selfPrompt("Please enter the project name:");
+    if(projectName) {
+      chrome.runtime.sendMessage({project: projectName, type: 'get_project_structure'}, (response) => {
+        if(!response) {
+          showStatus('Error: Failed to create project.', true);
+          return;
+        }
+        if( response.status === 'success') {
+          showStatus('Project created successfully.');
+        }
+        else {
+          showStatus(`Error: ${response.message}`, true);
+        }
+      });
+    }
+  });
+  createNodeButton.addEventListener('click',async ()=>{
+    const projectId = selectProject.value;
+    if(!projectId) {
+      showStatus('Please select a project.', true);
+      return;
+    }
+    const nodeTitle =await selfPrompt("Please enter the node title:");
+    if(nodeTitle) {
+      chrome.runtime.sendMessage({projectId, nodeTitle, type: 'create_node'}, (response) => {
+        if(!response) {
+          showStatus('Error: Failed to create node.', true);
+          return;
+        }
+        if( response.status === 'success') {
+          showStatus('Node created successfully.');
+        }
+        else {
+          showStatus(`Error: ${response.message}`, true);
+        }
+      });
+    }
+  });
 });
 
+
+
+function showDialog() {
+  const dialog = document.getElementById('dialog');
+  dialog.showModal();
+}
+function closeDialog() {
+  const dialog = document.getElementById('dialog');
+  dialog.close();
+}
+
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const closeDialogButton = document.getElementById('close-dialog');
+  const openDialogButton = document.getElementById('open-dialog');
+  closeDialogButton.addEventListener('click',()=>{
+    closeDialog();
+  });
+})
+
+
+async function selfPrompt(Info) {
+  const prompt = document.getElementById('prompt');
+  const promptInfo = document.getElementById('prompt-info');
+  const submitButton = document.getElementById('prompt-submit');
+  promptInfo.textContent = Info;
+  prompt.showModal();
+  return new Promise((resolve, reject) => {
+    submitButton.addEventListener('click', () => {
+      const value = document.getElementById('prompt-input').value;
+      prompt.close();
+      resolve(value);
+    }, { once: true });
+  });
+}
