@@ -1,0 +1,70 @@
+/* options.css */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  background-color: #f4f4f4; /* Light grey background */
+  color: #333; /* Dark grey text */
+}
+
+.container {
+  width: 400px; /* Slightly wider than popup, if needed */
+  padding: 20px;
+  background-color: #fff; /* White container background */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+h2 {
+  text-align: center;
+  color: #333;
+}
+
+h3 {
+  margin-top: 20px;
+  color: #555;
+  border-bottom: 1px solid #eee; /* Light grey border */
+  padding-bottom: 5px;
+}
+
+.llmApiKey-section,
+.llmApiUrl-section,
+.user-section,
+.api-section {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #666;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; /* Important for width to include padding and border */
+}
+
+.status#options-status {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #e0e0e0; /* Light grey status background */
+  color: #333;
+  text-align: center;
+  font-size: 0.9em;
+}
+
+.status#options-status.error {
+  background-color: #fdd; /* Light red for error */
+  color: #d33; /* Dark red for error text */
+}
+
+.status#options-status.success {
+  background-color: #dfd; /* Light green for success */
+  color: #3d3; /* Dark green for success text */
+}
