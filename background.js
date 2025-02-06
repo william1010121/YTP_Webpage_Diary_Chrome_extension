@@ -16,7 +16,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     const isTreasure = await CHECK.isTreasureSubpage(tab.url);
     if (isTreasure) {
       const user = await LOCAL.getUser();
-      const api = await LOCAL.getApi(); 
+      const api = await LOCAL.getApi();
       if (!user) {
         console.warn('User not set. Cannot upload URL.');
         return;
@@ -86,3 +86,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   })();
   return true;
 });
+
+
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((error) => console.error(error));
