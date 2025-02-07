@@ -1,3 +1,4 @@
+//popup.js
 document.addEventListener('DOMContentLoaded', () => {
   // --- Element Selectors ---
   const saveUrlButton = document.getElementById('save-url');
@@ -13,9 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const outputText = document.getElementById('output-text');
   const submitButton = document.getElementById('SubmitInput');
 
-  const selectProject = document.getElementById('projectId');
-  const selectNodeId = document.getElementById('nodeId');
+  const projectInput = document.getElementById('projectId'); // Input instead of select
+  const nodeInput = document.getElementById('nodeId');     // Input instead of select
   const selectUrlType = document.getElementById('urlType');
+
+  const projectResultsDiv = document.getElementById('projectId-results'); // Results div
+  const nodeResultsDiv = document.getElementById('nodeId-results');     // Results div
+
 
   const createProjectButton = document.getElementById('create-project');
   const createNodeButton = document.getElementById('create-node');
@@ -23,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const dialogInfo = document.getElementById('dialog-info');
   const openOptionsButton = document.getElementById('open-options'); // Get the new button
 
+
+  let projectListCache = []; // Cache project list
+  let projectStructureCache = {}; // Cache project structure
 
 
   // --- Reusable Storage Functions ---
@@ -75,14 +83,44 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 
-  const populateDropdown = (dropdown, options, valueKey = 'value', textKey = 'text') => {
-    dropdown.innerHTML = '';
-    options.forEach(optionData => {
-      const option = document.createElement('option');
-      option.value = optionData[valueKey];
-      option.text = optionData[textKey];
-      dropdown.appendChild(option);
-    });
+  const displaySearchResults = (inputElement, resultsDiv, results, isProject = true) => {
+    const ul = resultsDiv.querySelector('ul');
+    ul.innerHTML = ''; // Clear previous results
+
+    if (results && results.length > 0) {
+      results.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = isProject ? item : `${projectStructureCache.structure["nodeTitle"][item]}(${item})`; // Display node title if available
+        li.addEventListener('click', () => {
+          inputElement.value = isProject ? item : projectStructureCache.structure["nodeTitle"][item]; // Set input value on click
+          resultsDiv.style.display = 'none'; // Hide results
+          // Store the selected value somewhere if needed, or just get from input on save
+          inputElement.dataset.selectedValue = item; // Store actual id for node or project name for project
+        });
+        ul.appendChild(li);
+      });
+    } else if (inputElement.value.trim() !== '') {
+      // Option to create new if no results and input is not empty
+      const li = document.createElement('li');
+      li.textContent = `Create New ${isProject ? 'Project' : 'Node'} "${inputElement.value.trim()}"`;
+      li.classList.add('create-new'); // Style differently
+      li.addEventListener('click', async () => {
+        resultsDiv.style.display = 'none'; // Hide results
+        if (isProject) {
+          await createProject(inputElement.value.trim()); // Call create project function
+        } else {
+          const projectId = projectInput.value; // Get selected project to create node under
+          if (!projectId) {
+            showStatus('Please select a project first to create a node.', true);
+            return;
+          }
+          await createNode(projectId, inputElement.value.trim()); // Call create node function
+        }
+      });
+      ul.appendChild(li);
+    }
+
+    resultsDiv.style.display = results && results.length > 0 || inputElement.value.trim() !== '' ? 'block' : 'none'; // Show if results or input
   };
 
 
@@ -109,7 +147,19 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTreasureListUI(initialTreasureWebsites);
     const initialAutoUpload = await loadSetting('autoUpload', false);
     updateToggleButtonUI(initialAutoUpload);
+    loadProjects(); // Load projects on popup open
   };
+
+  const loadProjects = () => {
+    sendMessageToBackground({ type: 'get_projects' }, (response) => {
+      if (!response || response.status !== 'success') {
+        showStatus(response ? `Error: ${response.message}` : 'Error: Failed to get projects.', true);
+        return;
+      }
+      projectListCache = response.projectList.projects; // Store project list in cache
+    });
+  };
+
 
   initializePopup();
 
@@ -143,6 +193,132 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+
+  projectInput.addEventListener('input', () => {
+    const searchTerm = projectInput.value.trim();
+    if (searchTerm) {
+      const filteredProjects = projectListCache.filter(project =>
+        project.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      displaySearchResults(projectInput, projectResultsDiv, filteredProjects, true);
+    } else {
+      displaySearchResults(projectInput, projectResultsDiv, projectListCache, true); // Show all projects if input is cleared
+    }
+  });
+
+  projectInput.addEventListener('focus', () => {
+    if (projectInput.value.trim() === '') {
+      displaySearchResults(projectInput, projectResultsDiv, projectListCache, true); // Show all projects when focused and empty
+    } else {
+      projectResultsDiv.style.display = 'block'; // Ensure result is shown when focused if not empty
+    }
+  });
+
+  projectInput.addEventListener('blur', () => {
+    setTimeout(() => { // Delay hiding to allow click on result item
+      projectResultsDiv.style.display = 'none';
+    }, 100); // Short delay
+  });
+
+  // Project Input - Enter Key Handling
+  projectInput.addEventListener('keydown', async (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault(); // Prevent form submission or other default actions
+      const projectName = projectInput.value.trim();
+      if (projectName && projectResultsDiv.querySelectorAll('li:not(.create-new)').length === 0) {
+        // If there's input text and no existing results (only 'create-new' option or no results at all)
+        await createProject(projectName);
+      }
+      nodeInput.focus(); // Move focus to node input after project selection
+      console.log('Project Enter Key Pressed');
+    }
+  });
+
+
+
+  nodeInput.addEventListener('input', () => {
+    const searchTerm = nodeInput.value.trim();
+    const projectId = projectInput.value; // Get selected project to filter nodes
+
+    if (!projectId) {
+      showStatus('Please select a project first to search nodes.', true);
+      nodeResultsDiv.style.display = 'none'; // Hide node results if no project
+      return;
+    }
+
+    sendMessageToBackground({ project: projectId, type: 'get_project_structure' }, (response) => {
+      if (!response || response.status !== 'success') {
+        showStatus(response ? `Error: ${response.message}` : 'Error: Failed to get nodes.', true);
+        return;
+      }
+      projectStructureCache = response.projectStructure; // Cache structure
+      const structure = response.projectStructure.structure;
+      const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
+
+      let filteredNodes = [];
+      if (searchTerm) {
+        filteredNodes = keyList.filter(nodeId =>
+          structure["nodeTitle"][nodeId].toLowerCase().includes(searchTerm.toLowerCase()) || nodeId.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      } else {
+        filteredNodes = keyList; // Show all nodes if input is cleared
+      }
+      displaySearchResults(nodeInput, nodeResultsDiv, filteredNodes, false);
+    });
+  });
+
+  nodeInput.addEventListener('focus', () => {
+    const projectId = projectInput.value; // Get selected project to show nodes
+    if (!projectId) {
+      showStatus('Please select a project first to show nodes.', true);
+      nodeResultsDiv.style.display = 'none';
+      return;
+    }
+    if (nodeInput.value.trim() === '') {
+      // Fetch and display all nodes when focused and input is empty
+      sendMessageToBackground({ project: projectId, type: 'get_project_structure' }, (response) => {
+        if (!response || response.status !== 'success') {
+          showStatus(response ? `Error: ${response.message}` : 'Error: Failed to get nodes.', true);
+          return;
+        }
+        projectStructureCache = response.projectStructure; // Cache structure
+        const structure = response.projectStructure.structure;
+        const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
+        displaySearchResults(nodeInput, nodeResultsDiv, keyList, false);
+      });
+    } else {
+      nodeResultsDiv.style.display = 'block'; // Ensure result is shown when focused if not empty
+    }
+  });
+
+
+  nodeInput.addEventListener('blur', () => {
+    setTimeout(() => { // Delay hiding to allow click on result item
+      nodeResultsDiv.style.display = 'none';
+    }, 100); // Short delay
+  });
+
+
+  // Node Input - Enter Key Handling
+  nodeInput.addEventListener('keydown', async (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault(); // Prevent form submission
+      const nodeTitle = nodeInput.value.trim();
+      const projectId = projectInput.value;
+      if (nodeTitle && nodeResultsDiv.querySelectorAll('li:not(.create-new)').length === 0) {
+        // If there's input text and no existing results
+        if (!projectId) {
+          showStatus('Please select a project first to create a node.', true);
+          return;
+        }
+        await createNode(projectId, nodeTitle);
+      }
+      nodeInput.blur(); // Remove focus after node selection
+    }
+  });
+
+
+
   // --- Reusable Validation Functions ---
   const validateUser = async () => {
     const user = await loadSetting('user', '');
@@ -154,8 +330,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const validateProjectNodeUrlType = () => {
-    const projectId = selectProject.value;
-    const nodeId = selectNodeId.value;
+    //Modified to get values from input
+    const projectId = projectInput.dataset.selectedValue; // Use stored value or input value if no selection?
+    const nodeId = nodeInput.dataset.selectedValue; // Use stored value
     const urlType = selectUrlType.value;
     if (!projectId || !nodeId || !urlType) {
       showStatus('Please select a project, node, and URL type.', true);
@@ -285,51 +462,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 
-  // --- Dropdown Population and Project/Node Creation ---
-
-  selectProject.addEventListener('click', () => {
-    sendMessageToBackground({ type: 'get_projects' }, (response) => {
-      if (!response || response.status !== 'success') {
-        showStatus(response ? `Error: ${response.message}` : 'Error: Failed to get projects.', true);
-        return;
-      }
-      const length = response.projectList['project-length'];
-      const projects = response.projectList.projects;
-      const projectOptions = [];
-      for (let i = 0; i < length; i++) {
-        projectOptions.push({ value: projects[i], text: projects[i] });
-      }
-      populateDropdown(selectProject, projectOptions);
-    });
-  });
+  // --- Dropdown Population and Project/Node Creation --- (Remove Dropdown population, modify creation)
 
 
-  selectNodeId.addEventListener('click', () => {
-    const project = selectProject.value;
-    if (!project) {
-      showStatus('Please select a project.', true);
-      return;
-    }
-    sendMessageToBackground({ project, type: 'get_project_structure' }, (response) => {
-      if (!response || response.status !== 'success') {
-        showStatus(response ? `Error: ${response.message}` : 'Error: Failed to get nodes.', true);
-        return;
-      }
-
-      const structure = response.projectStructure.structure;
-      const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
-      const nodeOptions = [];
-      for (let i = 0; i < keyList.length; i++) {
-        nodeOptions.push({ value: keyList[i], text: `${structure["nodeTitle"][keyList[i]]}(${keyList[i]})` });
-      }
-      populateDropdown(selectNodeId, nodeOptions);
-    });
-  });
-
-
-  // Project Creation
-  createProjectButton.addEventListener('click', async () => {
-    const projectName = await selfPrompt("Please enter the project name:");
+  // Project Creation (Modified to use function and accept projectName directly)
+  const createProject = async (projectName) => {
     if (projectName) {
       sendMessageToBackground({ project: projectName, type: 'get_project_structure' }, (response) => {
         if (!response || response.status !== 'success') {
@@ -337,19 +474,24 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         showStatus('Project created successfully.');
+        loadProjects(); // Reload projects after creating new one
+        projectInput.value = projectName; // Set input to the new project name
+        projectInput.dataset.selectedValue = projectName; // Store selected value
       });
+    }
+  };
+
+
+  createProjectButton.addEventListener('click', async () => {
+    const projectName = await selfPrompt("Please enter the project name:");
+    if (projectName) {
+      await createProject(projectName); // Call the function to create project
     }
   });
 
 
-  // Node Creation
-  createNodeButton.addEventListener('click', async () => {
-    const projectId = selectProject.value;
-    if (!projectId) {
-      showStatus('Please select a project.', true);
-      return;
-    }
-    const nodeTitle = await selfPrompt("Please enter the node title:");
+  // Node Creation (Modified to use function and accept nodeTitle and projectId directly)
+  const createNode = async (projectId, nodeTitle) => {
     if (nodeTitle) {
       sendMessageToBackground({ projectId, nodeTitle, type: 'create_node' }, (response) => {
         if (!response || response.status !== 'success') {
@@ -357,7 +499,23 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         showStatus('Node created successfully.');
+        // Ideally, refresh node list for the selected project, or just clear node input
+        nodeInput.value = nodeTitle; // Set input to the new node title
+        nodeInput.dataset.selectedValue = response.nodeId; // Assuming backend returns nodeId in response for newly created node, if not adjust accordingly, maybe fetch project structure again to refresh
       });
+    }
+  };
+
+
+  createNodeButton.addEventListener('click', async () => {
+    const projectId = projectInput.value;
+    if (!projectId) {
+      showStatus('Please select a project.', true);
+      return;
+    }
+    const nodeTitle = await selfPrompt("Please enter the node title:");
+    if (nodeTitle) {
+      await createNode(projectId, nodeTitle); // Call the function to create node
     }
   });
 
@@ -373,12 +531,10 @@ document.addEventListener('DOMContentLoaded', () => {
     dialog.close();
   }
 
-  document.addEventListener('DOMContentLoaded', () => { // Redundant listener - already in DOMContentLoaded
-    const closeDialogButton = document.getElementById('close-dialog');
-    const openDialogButton = document.getElementById('open-dialog'); // openDialogButton is defined but not used. Consider removing if unused.
-    closeDialogButton.addEventListener('click', () => {
-      closeDialog();
-    });
+  const closeDialogButton = document.getElementById('close-dialog');
+  const openDialogButton = document.getElementById('open-dialog'); // openDialogButton is defined but not used. Consider removing if unused.
+  closeDialogButton.addEventListener('click', () => {
+    closeDialog();
   });
 
 

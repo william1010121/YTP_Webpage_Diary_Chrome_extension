@@ -1,52 +1,105 @@
+//popup.html
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>URL Saver</title>
-  <link rel="stylesheet" href="popup.css">
+  <meta charset="UTF-8">
+  <title>URL Saver</title>
+  <link rel="stylesheet" href="popup.css">
+<style>
+  .search-container {
+    position: relative; /* Needed for absolute positioning of results */
+  }
+
+  .search-input {
+    width: 100%; /* Adjust as needed */
+    padding: 8px;
+    box-sizing: border-box;
+  }
+
+  .search-results {
+    position: absolute;
+    top: 100%; /* Position below the input */
+    left: 0;
+    right: 0;
+    border: 1px solid #ccc;
+    border-top: none;
+    background-color: white;
+    z-index: 10; /* Ensure it's above other content */
+    max-height: 150px; /* Scrollable if too many results */
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+  }
+
+  .search-results ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .search-results li {
+    padding: 8px;
+    cursor: pointer;
+  }
+
+  .search-results li:hover {
+    background-color: #f0f0f0;
+  }
+
+  .search-results li.create-new {
+    font-style: italic;
+    color: grey;
+  }
+</style>
+
 </head>
 <body>
-  <div class="container">
-    <h2>URL Saver</h2>
-    <h3>Options</h3>
-    <button id="open-options">Options</button> 
-    <button id="save-url">Save URL</button>
-    <h3>Insert Place</h3>
-    <select id="projectId"></select>
-    <button id="create-project">Create Project</button>
-    <select id="nodeId"> </select>
-    <button id="create-node">Create Node</button>
-    <select id="urlType">
-      <option value="important">Important</option>
-      <option value="relate" default>Relate</option>
-      <option value="other">Other</option>
-    </select>
+  <div class="container">
+    <h2>URL Saver</h2>
+    <h3>Options</h3>
+    <button id="open-options">Options</button> 
+    <button id="save-url">Save URL</button>
+    <h3>Insert Place</h3>
+    <div class="search-container">
+      <input type="text" id="projectId" class="search-input" placeholder="Search or Create Project">
+      <div id="projectId-results" class="search-results"><ul></ul></div>
+    </div>
+    <button id="create-project">Create Project</button>
+    <div class="search-container">
+      <input type="text" id="nodeId" class="search-input" placeholder="Search or Create Node">
+      <div id="nodeId-results" class="search-results"><ul></ul></div>
+    </div>
+    <button id="create-node">Create Node</button>
+    <select id="urlType">
+      <option value="important">Important</option>
+      <option value="relate" default>Relate</option>
+      <option value="other">Other</option>
+    </select>
 
-    <button id="summary-and-save-url">Summary and Save URL</button>
-    <button id="mark-treasure">Mark as Treasure Website</button>
-    <button id="toggle-auto">Enable Auto Upload</button>
-    <button id="summary">Summary Current Page</button>
-    <div class="status" id="status"></div>
-    <h3>Input</h3>
-    <textarea id="input-text" placeholder="Enter some text"></textarea>
-    <button id="SubmitInput">Submit</button>
-    <h3>Title</h3>
-    <textarea id="title-text" readonly></textarea>
-    <h3>Output</h3>
-    <textarea id="output-text" readonly></textarea>
-    <h3>The list of the treasure websites</h3>
-    <textarea id="treasure-list"></textarea>
-  </div>
-  <dialog id="dialog">
-      <div id="dialog-info">Hello world</div>
-      <button id="close-dialog">Close</button>
-  </dialog>
-  <button id="open-dialog">Open Dialog</button>
-  <script src="popup.js"></script>
-  <dialog id="prompt">
-      <div id="prompt-info">Hello world</div>
-      <input type="text" id="prompt-input"></input>
-      <button id="prompt-submit">Submit</button>
-  </dialog>
+    <button id="summary-and-save-url">Summary and Save URL</button>
+    <button id="mark-treasure">Mark as Treasure Website</button>
+    <button id="toggle-auto">Enable Auto Upload</button>
+    <button id="summary">Summary Current Page</button>
+    <div class="status" id="status"></div>
+    <h3>Input</h3>
+    <textarea id="input-text" placeholder="Enter some text"></textarea>
+    <button id="SubmitInput">Submit</button>
+    <h3>Title</h3>
+    <textarea id="title-text" readonly></textarea>
+    <h3>Output</h3>
+    <textarea id="output-text" readonly></textarea>
+    <h3>The list of the treasure websites</h3>
+    <textarea id="treasure-list"></textarea>
+  </div>
+  <dialog id="dialog">
+      <div id="dialog-info">Hello world</div>
+      <button id="close-dialog">Close</button>
+  </dialog>
+  <button id="open-dialog">Open Dialog</button>
+  <script src="popup.js"></script>
+  <dialog id="prompt">
+      <div id="prompt-info">Hello world</div>
+      <input type="text" id="prompt-input"></input>
+      <button id="prompt-submit">Submit</button>
+  </dialog>
 </body>
 </html>
