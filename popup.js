@@ -22,8 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const nodeResultsDiv = document.getElementById('nodeId-results');     // Results div
 
 
-  const createProjectButton = document.getElementById('create-project');
-  const createNodeButton = document.getElementById('create-node');
 
   const dialogInfo = document.getElementById('dialog-info');
   const openOptionsButton = document.getElementById('open-options'); // Get the new button
@@ -482,13 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 
-  createProjectButton.addEventListener('click', async () => {
-    const projectName = await selfPrompt("Please enter the project name:");
-    if (projectName) {
-      await createProject(projectName); // Call the function to create project
-    }
-  });
-
 
   // Node Creation (Modified to use function and accept nodeTitle and projectId directly)
   const createNode = async (projectId, nodeTitle) => {
@@ -507,17 +498,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 
-  createNodeButton.addEventListener('click', async () => {
-    const projectId = projectInput.value;
-    if (!projectId) {
-      showStatus('Please select a project.', true);
-      return;
-    }
-    const nodeTitle = await selfPrompt("Please enter the node title:");
-    if (nodeTitle) {
-      await createNode(projectId, nodeTitle); // Call the function to create node
-    }
-  });
 
 
   // --- Dialog Functions and Event Listeners ---
