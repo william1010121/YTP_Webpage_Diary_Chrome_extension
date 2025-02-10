@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dialogInfo = document.getElementById('dialog-info');
   const openOptionsButton = document.getElementById('open-options'); // Get the new button
 
+  const nodeSearchContainer = document.getElementById('node-search-container');
 
   let projectListCache = []; // Cache project list
   let projectStructureCache = {}; // Cache project structure
@@ -92,6 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
         li.addEventListener('click', () => {
           inputElement.value = isProject ? item : projectStructureCache.structure["nodeTitle"][item]; // Set input value on click
           resultsDiv.style.display = 'none'; // Hide results
+          if(isProject && projectInput.value.trim() !== '') {
+            nodeSearchContainer.style.display='block';
+          }
           // Store the selected value somewhere if needed, or just get from input on save
           inputElement.dataset.selectedValue = item; // Store actual id for node or project name for project
         });
@@ -145,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTreasureListUI(initialTreasureWebsites);
     const initialAutoUpload = await loadSetting('autoUpload', false);
     updateToggleButtonUI(initialAutoUpload);
+    nodeSearchContainer.style.display='none';
     loadProjects(); // Load projects on popup open
   };
 
@@ -216,6 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { // Delay hiding to allow click on result item
       projectResultsDiv.style.display = 'none';
     }, 100); // Short delay
+    if(projectInput.value.trim() !== '' )
+      nodeSearchContainer.style.display='block';
   });
 
   // Project Input - Enter Key Handling
@@ -280,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         projectStructureCache = response.projectStructure; // Cache structure
+        nodeInput.style.display='block';
         const structure = response.projectStructure.structure;
         const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
         displaySearchResults(nodeInput, nodeResultsDiv, keyList, false);

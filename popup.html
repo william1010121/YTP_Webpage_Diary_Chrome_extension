@@ -3,7 +3,7 @@
     <head>
           <meta charset="UTF-8">
           <title>URL Saver</title>
-          <link rel="stylesheet" href="popup.css">
+          <link rel="stylesheet" href="./frontend_css/popup.css">
         <style>
         .search-container {
             position: relative; /* Needed for absolute positioning of results */
@@ -63,7 +63,7 @@
                 <div id="projectId-results" class="search-results"><ul></ul></div>
             </div>
                 <!-- <button id="create-project">Create Project</button> -->
-            <div class="search-container">
+            <div class="search-container" id="node-search-container">
                       <input type="text" id="nodeId" class="search-input" placeholder="Search or Create Node">
                 <div id="nodeId-results" class="search-results"><ul></ul></div>
             </div>
@@ -94,6 +94,6 @@
                   <button id="close-dialog">Close</button>
           </dialog>
           <button id="open-dialog">Open Dialog</button>
-          <script src="popup.js"></script>
+          <script src="./frontend_js/popup.js"></script>
     </body>
 </html>
