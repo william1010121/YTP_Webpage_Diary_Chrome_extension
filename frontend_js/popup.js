@@ -45,6 +45,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const newContainer = createNodeSearchContainer(nodeContainerCount++);
+      const parentLevel = parseInt(parentContainer.getAttribute("data-level") || "0");
+      const childLevel = parentLevel + 1;
+      newContainer.setAttribute("data-level", childLevel);
+
+      // Change from paddingLeft to marginLeft
+      newContainer.style.marginLeft = `${childLevel * 20}px`;
+      
+      // 移除個別元素的 padding-left 設定
+      const headerContent = newContainer.querySelector(".header-content");
+      if (headerContent) {
+        headerContent.style.paddingLeft = "0";
+      }
+
       parentContainer.insertAdjacentElement("afterend", newContainer);
 
       // Setup parent-child relationship
@@ -71,12 +84,14 @@ document.addEventListener("DOMContentLoaded", () => {
     
     container.innerHTML = `
       <div class="node-container-header">
-        <input type="text" class="search-input" placeholder="Search or Create Child Node">
-        <button class="select-node">Select Node</button>
-        <button class="remove-node-container">×</button>
+        <div class="header-content">
+          <input type="text" class="search-input" placeholder="Search or Create Child Node">
+          <button class="select-node">Select Node</button>
+          <button class="remove-node-container">×</button>
+        </div>
+        <div class="search-results"><ul></ul></div>
+        <button class="append-child-node">+ Add Child Node</button>
       </div>
-      <div class="search-results"><ul></ul></div>
-      <button class="append-child-node">+ Add Child Node</button>
     `;
 
     // Setup input handlers for the new container
