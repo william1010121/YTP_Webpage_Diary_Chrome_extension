@@ -30,6 +30,192 @@ document.addEventListener("DOMContentLoaded", () => {
   let projectListCache = []; // Cache project list
   let projectStructureCache = {}; // Cache project structure
 
+  const nodeContainersWrapper = document.getElementById("node-containers-wrapper");
+  let nodeContainerCount = 1;
+
+  // Add click handler for append child node buttons
+  nodeContainersWrapper.addEventListener("click", (e) => {
+    if (e.target.classList.contains("append-child-node")) {
+      const parentContainer = e.target.closest(".search-container");
+      const parentNodeInput = parentContainer.querySelector(".search-input");
+      
+      if (!parentNodeInput.dataset.selectedValue) {
+        showStatus("Please select a parent node first", true);
+        return;
+      }
+
+      const newContainer = createNodeSearchContainer(nodeContainerCount++);
+      parentContainer.insertAdjacentElement("afterend", newContainer);
+
+      // Setup parent-child relationship
+      newContainer.dataset.parentNodeId = parentNodeInput.dataset.selectedValue;
+    }
+    if (e.target.classList.contains("remove-node-container")) {
+      const container = e.target.closest(".node-container");
+      if (container) {
+        container.remove();
+      }
+    }
+  });
+
+  function createNodeSearchContainer(index) {
+    const container = document.createElement("div");
+    container.className = "search-container node-container";
+    container.id = `node-search-container-${index}`;
+    
+    container.innerHTML = `
+      <div class="node-container-header">
+        <input type="text" class="search-input" placeholder="Search or Create Child Node">
+        <button class="remove-node-container">×</button>
+      </div>
+      <div class="search-results"><ul></ul></div>
+      <button class="append-child-node">+ Add Child Node</button>
+    `;
+
+    // Setup input handlers for the new container
+    const input = container.querySelector(".search-input");
+    const resultsDiv = container.querySelector(".search-results");
+
+    input.addEventListener("input", () => handleNodeSearch(input, resultsDiv));
+    input.addEventListener("focus", () => handleNodeFocus(input, resultsDiv));
+    input.addEventListener("blur", () => {
+      setTimeout(() => {
+        resultsDiv.style.display = "none";
+      }, 100);
+    });
+    input.addEventListener("keydown", (event) => handleNodeKeydown(event, input));
+
+    return container;
+  }
+
+  async function handleNodeSearch(input, resultsDiv) {
+    const searchTerm = input.value.trim();
+    const projectId = projectInput.value;
+    const parentContainer = input.closest(".node-container");
+    const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
+
+    if (!projectId) {
+      showStatus("Please select a project first to search nodes.", true);
+      resultsDiv.style.display = "none";
+      return;
+    }
+
+    sendMessageToBackground({ project: projectId, type: "get_project_structure" }, (response) => {
+      if (!response || response.status !== "success") {
+        showStatus(response ? `Error: ${response.message}` : "Error: Failed to get nodes.", true);
+        return;
+      }
+
+      projectStructureCache = response.projectStructure;
+      const structure = response.projectStructure.structure;
+      const keyList = Object.keys(structure).filter(key => key !== "nodeTitle");
+
+      let filteredNodes = [];
+      if (searchTerm) {
+        // If there's a parent node, only show its children
+        if (parentNodeId && structure[parentNodeId]) {
+          const childNodes = structure[parentNodeId];
+          filteredNodes = childNodes.filter(nodeId => 
+            structure.nodeTitle[nodeId].toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nodeId.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        } else {
+          filteredNodes = keyList.filter(nodeId =>
+            structure.nodeTitle[nodeId].toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nodeId.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        }
+      } else if (parentNodeId && structure[parentNodeId]) {
+        filteredNodes = structure[parentNodeId];
+      } else {
+        filteredNodes = keyList;
+      }
+
+      displaySearchResults(input, resultsDiv, filteredNodes, false);
+    });
+  }
+
+  async function handleNodeFocus(input, resultsDiv) {
+    const projectId = projectInput.value;
+    const parentContainer = input.closest(".node-container");
+    const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
+
+    if (!projectId) {
+      showStatus("Please select a project first to show nodes.", true);
+      resultsDiv.style.display = "none";
+      return;
+    }
+
+    if (input.value.trim() === "") {
+      sendMessageToBackground({ project: projectId, type: "get_project_structure" }, (response) => {
+        if (!response || response.status !== "success") {
+          showStatus(response ? `Error: ${response.message}` : "Error: Failed to get nodes.", true);
+          return;
+        }
+
+        projectStructureCache = response.projectStructure;
+        const structure = response.projectStructure.structure;
+        let nodeList;
+
+        if (parentNodeId && structure[parentNodeId]) {
+          nodeList = structure[parentNodeId];
+        } else {
+          nodeList = Object.keys(structure).filter(key => key !== "nodeTitle");
+        }
+
+        displaySearchResults(input, resultsDiv, nodeList, false);
+      });
+    }
+  }
+
+  async function handleNodeKeydown(event, input) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const nodeTitle = input.value.trim();
+      const projectId = projectInput.value;
+      const parentContainer = input.closest(".node-container");
+      const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
+
+      if (nodeTitle && input.closest(".search-results").querySelectorAll("li:not(.create-new)").length === 0) {
+        if (!projectId) {
+          showStatus("Please select a project first to create a node.", true);
+          return;
+        }
+
+        // Create the new node
+        sendMessageToBackground({ projectId, nodeTitle, type: "create_node" }, (response) => {
+          if (!response || response.status !== "success") {
+            showStatus(response ? `Error: ${response.message}` : "Error: Failed to create node.", true);
+            return;
+          }
+
+          const newNodeId = response.node.id;
+          input.value = nodeTitle;
+          input.dataset.selectedValue = newNodeId;
+
+          // If there's a parent node, create an edge
+          if (parentNodeId) {
+            sendMessageToBackground({
+              projectId,
+              fromNodeId: parentNodeId,
+              toNodeId: newNodeId,
+              type: "create_edge"
+            }, (edgeResponse) => {
+              if (!edgeResponse || edgeResponse.status !== "success") {
+                showStatus("Node created but failed to create edge.", true);
+                return;
+              }
+              showStatus("Node created and connected successfully.");
+            });
+          } else {
+            showStatus("Node created successfully.");
+          }
+        });
+      }
+      input.blur();
+    }
+  }
+
   // --- Reusable Storage Functions ---
   const loadSetting = (key, defaultValue) => {
     return new Promise((resolve) => {
@@ -337,9 +523,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const user = await validateUser();
     if (!user) return;
 
-    const projectNodeUrlTypeData = validateProjectNodeUrlType();
-    if (!projectNodeUrlTypeData) return;
-    const { projectId, nodeId, urlType } = projectNodeUrlTypeData;
+    const projectId = projectInput.dataset.selectedValue;
+    if (!projectId) {
+      showStatus("Please select a project.", true);
+      return;
+    }
+
+    const nodeId = getLowestNodeId();
+    if (!nodeId) {
+      showStatus("Please select at least one node.", true);
+      return;
+    }
+
+    const urlType = selectUrlType.value;
+    if (!urlType) {
+      showStatus("Please select a URL type.", true);
+      return;
+    }
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = tab.url;
@@ -362,16 +562,31 @@ document.addEventListener("DOMContentLoaded", () => {
   summaryAndSaveURLButton.addEventListener("click", async () => {
     const user = await validateUser();
     if (!user) return;
-    const projectNodeUrlTypeData = validateProjectNodeUrlType();
-    if (!projectNodeUrlTypeData) return;
-    const { projectId, nodeId, urlType } = projectNodeUrlTypeData;
+
+    const projectId = projectInput.dataset.selectedValue;
+    if (!projectId) {
+      showStatus("Please select a project.", true);
+      return;
+    }
+
+    const nodeId = getLowestNodeId();
+    if (!nodeId) {
+      showStatus("Please select at least one node.", true);
+      return;
+    }
+
+    const urlType = selectUrlType.value;
+    if (!urlType) {
+      showStatus("Please select a URL type.", true);
+      return;
+    }
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = tab.url;
 
     setButtonLoadingState(summaryAndSaveURLButton, true, "Summarizing and Saving...");
-    await summaryCurrentPage(); // Ensure summary is complete before proceeding
-    setButtonLoadingState(summaryAndSaveURLButton, false, "Summarize & Save URL", "Summarize & Save URL"); // Restore text
+    await summaryCurrentPage();
+    setButtonLoadingState(summaryAndSaveURLButton, false, "Summarize & Save URL", "Summarize & Save URL");
 
     const content = outputText.textContent;
     const title = titleText.textContent;
@@ -476,6 +691,29 @@ document.addEventListener("DOMContentLoaded", () => {
         nodeInput.dataset.selectedValue = response.nodeId; // Assuming backend returns nodeId in response for newly created node, if not adjust accordingly, maybe fetch project structure again to refresh
       });
     }
+  };
+
+  const getLowestNodeId = () => {
+    const containers = nodeContainersWrapper.querySelectorAll(".search-container");
+    let leafNodes = [];
+    
+    containers.forEach(container => {
+      // Check if this container has any child node containers
+      const nextSibling = container.nextElementSibling;
+      const hasChildNodes = nextSibling && nextSibling.classList.contains('node-container');
+      
+      if (!hasChildNodes) {
+        // This is a leaf node, get its node ID
+        const input = container.querySelector(".search-input");
+        const nodeId = input.dataset.selectedValue;
+        if (nodeId) {
+          leafNodes.push(nodeId);
+        }
+      }
+    });
+    
+    // Return the first leaf node ID found (or null if none found)
+    return leafNodes.length > 0 ? leafNodes[0] : null;
   };
 
   // --- Dialog Functions and Event Listeners ---

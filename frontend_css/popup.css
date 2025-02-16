@@ -40,3 +40,58 @@ button {
   color: green;
 }
 
+.append-child-node {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+.append-child-node:hover {
+  background-color: #45a049;
+}
+
+.node-container {
+  margin-left: 20px;
+  border-left: 2px solid #ccc;
+  padding-left: 10px;
+  margin-top: 10px;
+}
+
+#node-containers-wrapper {
+}
+
+.node-container-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+
+.node-container-header .search-input {
+  flex-grow: 1;
+}
+
+.remove-node-container {
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin: 0;
+}
+
+.remove-node-container:hover {
+  background-color: #cc0000;
+}
+
