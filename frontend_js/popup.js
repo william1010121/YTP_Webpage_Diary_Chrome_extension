@@ -36,7 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add click handler for append child node buttons
   nodeContainersWrapper.addEventListener("click", (e) => {
     if (e.target.classList.contains("append-child-node")) {
-      const parentContainer = e.target.closest(".search-container");
+      const wrapper = e.target.closest(".node-wrapper");
+      const parentContainer = wrapper.querySelector(".search-container");
       const parentNodeInput = parentContainer.querySelector(".search-input");
       
       if (!parentNodeInput.dataset.selectedValue) {
@@ -45,11 +46,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const newContainer = createNodeSearchContainer(nodeContainerCount++);
-      const parentLevel = parseInt(parentContainer.getAttribute("data-level") || "0");
+      const parentLevel = parseInt(wrapper.getAttribute("data-level") || "0");
       const childLevel = parentLevel + 1;
       newContainer.setAttribute("data-level", childLevel);
 
-      // Change from paddingLeft to marginLeft
       newContainer.style.marginLeft = `${childLevel * 20}px`;
       
       // 移除個別元素的 padding-left 設定
@@ -58,15 +58,17 @@ document.addEventListener("DOMContentLoaded", () => {
         headerContent.style.paddingLeft = "0";
       }
 
-      parentContainer.insertAdjacentElement("afterend", newContainer);
-
-      // Setup parent-child relationship
+      wrapper.insertAdjacentElement("afterend", newContainer);
+      // 設定父子關係：並清空新容器內搜尋結果，確保其只屬於該子節點
       newContainer.dataset.parentNodeId = parentNodeInput.dataset.selectedValue;
+      const newResultsUl = newContainer.querySelector(".search-results ul");
+      if (newResultsUl) newResultsUl.innerHTML = "";
     }
     if (e.target.classList.contains("remove-node-container")) {
-      const container = e.target.closest(".node-container");
-      if (container) {
-        container.remove();
+      // 改為移除整個 wrapper，包括子節點
+      const wrapper = e.target.closest(".node-wrapper");
+      if (wrapper) {
+        wrapper.remove();
       }
     }
     if (e.target.classList.contains("select-node")) {
@@ -78,29 +80,33 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function createNodeSearchContainer(index) {
-    const container = document.createElement("div");
-    container.className = "search-container node-container";
-    container.id = `node-search-container-${index}`;
+    const wrapper = document.createElement("div");
+    wrapper.className = "node-wrapper";
+    wrapper.id = `node-wrapper-${index}`;
     
-    container.innerHTML = `
-      <div class="node-container-header">
-        <div class="header-content">
-          <div class="input-group">
-            <input type="text" class="search-input" placeholder="Search or Create Child Node">
-            <button class="select-node">Select</button>
+    wrapper.innerHTML = `
+      <div class="search-container node-container">
+        <div class="node-container-header">
+          <div class="header-content">
+            <div class="input-group">
+              <input type="text" class="search-input" placeholder="Search or Create Child Node">
+            </div>
+            <div class="button-group">
+              <button class="remove-node-container">×</button>
+            </div>
           </div>
-          <div class="button-group">
-            <button class="remove-node-container">×</button>
-          </div>
+          <div class="search-results"><ul></ul></div>
         </div>
-        <div class="search-results"><ul></ul></div>
+      </div>
+      <div class="node-actions">
+        <button class="select-node">Select Node</button>
         <button class="append-child-node">+ Add Child Node</button>
       </div>
     `;
-
+    
     // Setup input handlers for the new container
-    const input = container.querySelector(".search-input");
-    const resultsDiv = container.querySelector(".search-results");
+    const input = wrapper.querySelector(".search-input");
+    const resultsDiv = wrapper.querySelector(".search-results");
 
     input.addEventListener("input", () => handleNodeSearch(input, resultsDiv));
     input.addEventListener("focus", () => handleNodeFocus(input, resultsDiv));
@@ -111,13 +117,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     input.addEventListener("keydown", (event) => handleNodeKeydown(event, input));
 
-    return container;
+    return wrapper;
   }
 
   async function handleNodeSearch(input, resultsDiv) {
     const searchTerm = input.value.trim();
     const projectId = projectInput.value;
-    const parentContainer = input.closest(".node-container");
+    const parentContainer = input.closest(".node-wrapper");
     const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
 
     if (!projectId) {
@@ -163,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function handleNodeFocus(input, resultsDiv) {
     const projectId = projectInput.value;
-    const parentContainer = input.closest(".node-container");
+    const parentContainer = input.closest(".node-wrapper");
     const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
 
     if (!projectId) {
@@ -199,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       const nodeTitle = input.value.trim();
       const projectId = projectInput.value;
-      const parentContainer = input.closest(".node-container");
+      const parentContainer = input.closest(".node-wrapper");
       const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
 
       // If this is a child node input, check if the node already exists under its father.
