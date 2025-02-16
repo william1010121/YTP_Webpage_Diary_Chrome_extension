@@ -1,5 +1,4 @@
 //popup.js
-import { getChildNodes } from "../lib/treeProcess.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   // --- Element Selectors ---
