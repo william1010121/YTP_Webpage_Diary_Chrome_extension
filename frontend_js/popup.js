@@ -85,9 +85,13 @@ document.addEventListener("DOMContentLoaded", () => {
     container.innerHTML = `
       <div class="node-container-header">
         <div class="header-content">
-          <input type="text" class="search-input" placeholder="Search or Create Child Node">
-          <button class="select-node">Select Node</button>
-          <button class="remove-node-container">×</button>
+          <div class="input-group">
+            <input type="text" class="search-input" placeholder="Search or Create Child Node">
+            <button class="select-node">Select</button>
+          </div>
+          <div class="button-group">
+            <button class="remove-node-container">×</button>
+          </div>
         </div>
         <div class="search-results"><ul></ul></div>
         <button class="append-child-node">+ Add Child Node</button>
