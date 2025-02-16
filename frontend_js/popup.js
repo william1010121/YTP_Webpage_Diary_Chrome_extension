@@ -56,6 +56,12 @@ document.addEventListener("DOMContentLoaded", () => {
         container.remove();
       }
     }
+    if (e.target.classList.contains("select-node")) {
+      // 取消所有容器的選取狀態
+      nodeContainersWrapper.querySelectorAll(".search-container").forEach(cont => cont.classList.remove("selected-node"));
+      const container = e.target.closest(".search-container");
+      container.classList.add("selected-node");
+    }
   });
 
   function createNodeSearchContainer(index) {
@@ -66,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
     container.innerHTML = `
       <div class="node-container-header">
         <input type="text" class="search-input" placeholder="Search or Create Child Node">
+        <button class="select-node">Select Node</button>
         <button class="remove-node-container">×</button>
       </div>
       <div class="search-results"><ul></ul></div>
@@ -176,7 +183,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const parentContainer = input.closest(".node-container");
       const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
 
-      if (nodeTitle && input.closest(".search-results").querySelectorAll("li:not(.create-new)").length === 0) {
+      // If this is a child node input, check if the node already exists under its father.
+      if (parentNodeId) {
+        const structure = projectStructureCache.structure || {};
+        const parentChildren = structure[parentNodeId] || [];
+        const existingChild = parentChildren.find(childId => 
+          structure.nodeTitle[childId].toLowerCase() === nodeTitle.toLowerCase()
+        );
+        if (existingChild) {
+          // Select the existing node and notify the user.
+          input.value = structure.nodeTitle[existingChild];
+          input.dataset.selectedValue = existingChild;
+          showStatus("Node already exists under parent. Selected existing node.");
+          input.blur();
+          return;
+        }
+      }
+
+      // Replace querySelectorAll from input.closest(".search-results")
+      const container = input.closest(".search-container");
+      const resultsDiv = container ? container.querySelector(".search-results") : null;
+      if (nodeTitle && resultsDiv && resultsDiv.querySelectorAll("li:not(.create-new)").length === 0) {
         if (!projectId) {
           showStatus("Please select a project first to create a node.", true);
           return;
@@ -189,11 +216,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
-          const newNodeId = response.node.id;
+          const newNodeId = response.node.ID;
           input.value = nodeTitle;
           input.dataset.selectedValue = newNodeId;
 
-          // If there's a parent node, create an edge
+          // If there's a parent node, create an edge between the father and the new node.
           if (parentNodeId) {
             sendMessageToBackground({
               projectId,
@@ -694,6 +721,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getLowestNodeId = () => {
+    const selectedContainer = nodeContainersWrapper.querySelector(".search-container.selected-node");
+    if (selectedContainer) {
+      const input = selectedContainer.querySelector(".search-input");
+      if (input.dataset.selectedValue) return input.dataset.selectedValue;
+    }
+    // 原本邏輯：回傳第一個葉節點的 nodeId
     const containers = nodeContainersWrapper.querySelectorAll(".search-container");
     let leafNodes = [];
     
