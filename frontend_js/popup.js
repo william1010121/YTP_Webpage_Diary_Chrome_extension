@@ -73,8 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (e.target.classList.contains("select-node")) {
       // 取消所有容器的選取狀態
-      nodeContainersWrapper.querySelectorAll(".search-container").forEach(cont => cont.classList.remove("selected-node"));
-      const container = e.target.closest(".search-container");
+      nodeContainersWrapper.querySelectorAll(".node-wrapper").forEach(cont => cont.classList.remove("selected-node"));
+      const container = e.target.closest(".node-wrapper");
       container.classList.add("selected-node");
     }
   });
@@ -208,6 +208,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const parentContainer = input.closest(".node-wrapper");
       const parentNodeId = parentContainer ? parentContainer.dataset.parentNodeId : null;
 
+      nodeContainersWrapper.querySelectorAll(".node-wrapper").forEach(cont => cont.classList.remove("selected-node"));
+      input.closest(".node-wrapper").classList.add("selected-node");
       // If this is a child node input, check if the node already exists under its father.
       if (parentNodeId) {
         const structure = projectStructureCache.structure || {};
@@ -531,18 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Node Input - Enter Key Handling
   nodeInput.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
-      event.preventDefault(); // Prevent form submission
-      const nodeTitle = nodeInput.value.trim();
-      const projectId = projectInput.value;
-      if (nodeTitle && nodeResultsDiv.querySelectorAll("li:not(.create-new)").length === 0) {
-        // If there's input text and no existing results
-        if (!projectId) {
-          showStatus("Please select a project first to create a node.", true);
-          return;
-        }
-        await createNode(projectId, nodeTitle);
-      }
-      nodeInput.blur(); // Remove focus after node selection
+      handleNodeKeydown(event, nodeInput);
     }
   });
 
@@ -746,32 +737,14 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getLowestNodeId = () => {
-    const selectedContainer = nodeContainersWrapper.querySelector(".search-container.selected-node");
+    const selectedContainer = nodeContainersWrapper.querySelector(".node-wrapper.selected-node");
     if (selectedContainer) {
       const input = selectedContainer.querySelector(".search-input");
       if (input.dataset.selectedValue) return input.dataset.selectedValue;
     }
-    // 原本邏輯：回傳第一個葉節點的 nodeId
-    const containers = nodeContainersWrapper.querySelectorAll(".search-container");
-    let leafNodes = [];
-    
-    containers.forEach(container => {
-      // Check if this container has any child node containers
-      const nextSibling = container.nextElementSibling;
-      const hasChildNodes = nextSibling && nextSibling.classList.contains('node-container');
-      
-      if (!hasChildNodes) {
-        // This is a leaf node, get its node ID
-        const input = container.querySelector(".search-input");
-        const nodeId = input.dataset.selectedValue;
-        if (nodeId) {
-          leafNodes.push(nodeId);
-        }
-      }
-    });
-    
-    // Return the first leaf node ID found (or null if none found)
-    return leafNodes.length > 0 ? leafNodes[0] : null;
+    else {
+      showStatus("Please select one node.", true);
+    }
   };
 
   // --- Dialog Functions and Event Listeners ---
